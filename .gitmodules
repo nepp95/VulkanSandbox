@@ -1,0 +1,3 @@
+[submodule "VulkanSandbox/vendor/glfw"]
+	path = VulkanSandbox/vendor/glfw
+	url = https://github.com/nepp95/glfw.git

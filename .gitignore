@@ -1,0 +1,9 @@
+*.sln
+*.vcxproj*
+*.spv
+
+vendor/
+.vs/
+bin/
+bin-int/
+__pycache__
