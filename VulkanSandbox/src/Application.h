@@ -73,8 +73,11 @@ private:
 
 	// Command buffers
 	void CreateCommandPool();
-	void CreateCommandBuffer();
+	void CreateCommandBuffers();
 	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+
+	// Syncing
+	void CreateSyncObjects();
 
 private:
 	GLFWwindow* m_window{ nullptr };
@@ -101,5 +104,11 @@ private:
 	VkRenderPass m_renderPass;
 
 	VkCommandPool m_commandPool;
-	VkCommandBuffer m_commandBuffer;
+	std::vector<VkCommandBuffer> m_commandBuffers;
+
+	std::vector<VkSemaphore> m_imageAvailableSemaphores;
+	std::vector<VkSemaphore> m_renderFinishedSemaphores;
+	std::vector<VkFence> m_inFlightFences;
+
+	uint32_t m_currentFrame{ 0 };
 };
