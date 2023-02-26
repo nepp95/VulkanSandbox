@@ -39,6 +39,8 @@ void Application::InitVulkan()
 
 	m_window = glfwCreateWindow(WIDTH, HEIGHT, "VulkanSandbox", nullptr, nullptr);
 
+	// Set framebuffer resize callback here to notify the recreation of swapchain
+
 	////////////////////////////////////
 
 	if (ENABLE_VALIDATION_LAYERS && !HasValidationLayerSupport())
@@ -85,6 +87,7 @@ void Application::InitVulkan()
 	CreateGraphicsPipeline();
 	CreateFramebuffers();
 	CreateCommandPool();
+	CreateVertexBuffer();
 	CreateCommandBuffers();
 	CreateSyncObjects();
 }
@@ -102,21 +105,23 @@ void Application::MainLoop()
 
 void Application::Cleanup()
 {
+	CleanupSwapchain();
+
+	vkDestroyBuffer(m_device, m_vertexBuffer, nullptr);
+
+	vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
+	vkDestroyRenderPass(m_device, m_renderPass, nullptr);
+
 	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		vkDestroySemaphore(m_device, m_imageAvailableSemaphores[i], nullptr);
 		vkDestroySemaphore(m_device, m_renderFinishedSemaphores[i], nullptr);
 		vkDestroyFence(m_device, m_inFlightFences[i], nullptr);
 	}
+
 	vkDestroyCommandPool(m_device, m_commandPool, nullptr);
-	for (auto& framebuffer : m_swapchainFramebuffers)
-		vkDestroyFramebuffer(m_device, framebuffer, nullptr);
-	vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
-	vkDestroyRenderPass(m_device, m_renderPass, nullptr);
-	for (auto& imageView : m_swapchainImageViews)
-		vkDestroyImageView(m_device, imageView, nullptr);
-	vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+	
 	vkDestroyDevice(m_device, nullptr);
 
 	if (ENABLE_VALIDATION_LAYERS)
@@ -131,14 +136,21 @@ void Application::Cleanup()
 
 void Application::DrawFrame()
 {
-	// OpenGL: D 239/240 R 8/9
 	LOG("Frame Begin");
 
 	vkWaitForFences(m_device, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
-	vkResetFences(m_device, 1, &m_inFlightFences[m_currentFrame]);
 
 	uint32_t imageIndex{ 0 };
-	vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
+	VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR)
+	{
+		RecreateSwapchain();
+		LOG("Swapchain recreated. Ending this frame before draw");
+		return; // Don't continue drawing this frame
+	} // VK_SUBOPTIMAL_KHR can be used for rendering, but recreating is advised
+	
+	vkResetFences(m_device, 1, &m_inFlightFences[m_currentFrame]);
 
 	vkResetCommandBuffer(m_commandBuffers[m_currentFrame], 0);
 	RecordCommandBuffer(m_commandBuffers[m_currentFrame], imageIndex);
@@ -170,7 +182,13 @@ void Application::DrawFrame()
 	presentInfo.pImageIndices = &imageIndex;
 	presentInfo.pResults = nullptr;
 
-	vkQueuePresentKHR(m_presentQueue, &presentInfo);
+	result = vkQueuePresentKHR(m_presentQueue, &presentInfo);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_framebufferResized)
+	{
+		m_framebufferResized = false;
+		RecreateSwapchain();
+	}
 
 	m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
@@ -288,7 +306,7 @@ bool Application::IsDeviceSuitable(VkPhysicalDevice device)
 	SwapchainSupportDetails swapchainSupport = QuerySwapchainSupport(device);
 	if (swapchainSupport.Formats.empty() || swapchainSupport.PresentModes.empty())
 		return false;
-
+	
 	return true;
 }
 
@@ -491,6 +509,37 @@ void Application::CreateSwapchain()
 	m_swapchainImageFormat = format.format;
 }
 
+void Application::RecreateSwapchain()
+{
+	int width{ 0 }, height{ 0 };
+	glfwGetFramebufferSize(m_window, &width, &height);
+
+	while (width == 0 || height == 0) // Window minimized
+	{
+		glfwGetFramebufferSize(m_window, &width, &height);
+		glfwWaitEvents();
+	}
+
+	vkDeviceWaitIdle(m_device);
+
+	CleanupSwapchain();
+
+	CreateSwapchain();
+	CreateImageViews();
+	CreateFramebuffers();
+}
+
+void Application::CleanupSwapchain()
+{
+	for (auto& framebuffer : m_swapchainFramebuffers)
+		vkDestroyFramebuffer(m_device, framebuffer, nullptr);
+
+	for (auto& imageView : m_swapchainImageViews)
+		vkDestroyImageView(m_device, imageView, nullptr);
+
+	vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+}
+
 void Application::CreateFramebuffers()
 {
 	m_swapchainFramebuffers.resize(m_swapchainImageViews.size());
@@ -512,6 +561,11 @@ void Application::CreateFramebuffers()
 
 		VK_CHECK(vkCreateFramebuffer(m_device, &framebufferInfo, nullptr, &m_swapchainFramebuffers[i]), "Failed to create framebuffer!");
 	}
+}
+
+void Application::OnResize()
+{
+	m_framebufferResized = true;
 }
 
 void Application::CreateImageViews()
@@ -561,12 +615,15 @@ void Application::CreateGraphicsPipeline()
 	VkPipelineShaderStageCreateInfo shaderStagers[] = { vertShaderCreateInfo, fragShaderCreateInfo };
 
 	// Vertex input
+	auto bindingDescription = Vertex::GetBindingDescription();
+	auto attributeDescriptions = Vertex::GetAttributeDescriptions();
+
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.pVertexBindingDescriptions = nullptr;
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+	vertexInputInfo.vertexBindingDescriptionCount = 1;
+	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+	vertexInputInfo.vertexAttributeDescriptionCount = (uint32_t)attributeDescriptions.size();;
+	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 	// Input assembly
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
@@ -825,4 +882,15 @@ void Application::CreateSyncObjects()
 		VK_CHECK(vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_renderFinishedSemaphores[i]), "Failed to create semaphore!");
 		VK_CHECK(vkCreateFence(m_device, &fenceInfo, nullptr, &m_inFlightFences[i]), "Failed to create fence!");
 	}
+}
+
+void Application::CreateVertexBuffer()
+{
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = sizeof(Vertex) * vertices.size();
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	VK_CHECK(vkCreateBuffer(m_device, &bufferInfo, nullptr, &m_vertexBuffer), "Failed to create vertex buffer!");
 }

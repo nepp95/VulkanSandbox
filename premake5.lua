@@ -35,6 +35,7 @@ project "VulkanSandbox"
 	includedirs {
 		"src",
 		"%{IncludeDir.glfw}",
+		"%{IncludeDir.glm}",
 		"%{IncludeDir.VulkanSDK}"
 	}
 

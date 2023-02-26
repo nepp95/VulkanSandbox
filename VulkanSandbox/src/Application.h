@@ -2,6 +2,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include "UseAlot.h"
 
@@ -59,7 +60,10 @@ private:
 	VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 	VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	void CreateSwapchain();
+	void RecreateSwapchain();
+	void CleanupSwapchain();
 	void CreateFramebuffers();
+	void OnResize();
 
 	// ImageView
 	void CreateImageViews();
@@ -78,6 +82,9 @@ private:
 
 	// Syncing
 	void CreateSyncObjects();
+
+	// Vertex buffer
+	void CreateVertexBuffer();
 
 private:
 	GLFWwindow* m_window{ nullptr };
@@ -98,6 +105,7 @@ private:
 	VkFormat m_swapchainImageFormat;
 	VkExtent2D m_swapchainExtent;
 	std::vector<VkFramebuffer> m_swapchainFramebuffers;
+	bool m_framebufferResized{ false };
 
 	VkPipeline m_graphicsPipeline;
 	VkPipelineLayout m_pipelineLayout;
@@ -109,6 +117,7 @@ private:
 	std::vector<VkSemaphore> m_imageAvailableSemaphores;
 	std::vector<VkSemaphore> m_renderFinishedSemaphores;
 	std::vector<VkFence> m_inFlightFences;
-
 	uint32_t m_currentFrame{ 0 };
+
+	VkBuffer m_vertexBuffer;
 };
