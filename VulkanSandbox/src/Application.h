@@ -84,7 +84,11 @@ private:
 	void CreateSyncObjects();
 
 	// Vertex buffer
+	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags propertyFlags, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void CreateVertexBuffer();
+	void CreateIndexBuffer();
+	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 private:
 	GLFWwindow* m_window{ nullptr };
@@ -120,4 +124,7 @@ private:
 	uint32_t m_currentFrame{ 0 };
 
 	VkBuffer m_vertexBuffer;
+	VkDeviceMemory m_vertexBufferMemory;
+	VkBuffer m_indexBuffer;
+	VkDeviceMemory m_indexBufferMemory;
 };
