@@ -4,20 +4,12 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+#include "LogicalDevice.h"
+#include "PhysicalDevice.h"
 #include "UseAlot.h"
+#include "Vulkan.h"
 
 #include <optional>
-
-struct QueueFamilyIndices
-{
-	std::optional<uint32_t> GraphicsFamily;
-	std::optional<uint32_t> PresentFamily;
-
-	bool IsComplete()
-	{
-		return GraphicsFamily.has_value() && PresentFamily.has_value();
-	}
-};
 
 struct SwapchainSupportDetails
 {
@@ -29,27 +21,22 @@ struct SwapchainSupportDetails
 class Application
 {
 public:
+	Application();
+
+	static Application& Get() { return *s_instance; }
+	VkInstance GetInstance() { return m_instance; }
+
 	void Run();
+	void Shutdown();
 	
 private:
-	void InitVulkan();
-	void MainLoop();
-	void Cleanup();
-
 	void DrawFrame();
 
 	bool HasValidationLayerSupport();
 	std::vector<const char*> GetRequiredExtensions();
-	void SetupDebugMessenger();
-	void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 
 	// Physical device
-	void SelectPhysicalDevice();
 	bool IsDeviceSuitable(VkPhysicalDevice device);
-	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
-
-	// Logical device
-	void CreateLogicalDevice();
 
 	// Surface
 	void CreateSurface();
@@ -95,11 +82,10 @@ private:
 	VkInstance m_instance;
 	VkDebugUtilsMessengerEXT m_debugMessenger;
 
-	VkPhysicalDevice m_physicalDevice{ VK_NULL_HANDLE };
-	VkDevice m_device;
+	static Application* s_instance;
 
-	VkQueue m_graphicsQueue;
-	VkQueue m_presentQueue;
+	std::shared_ptr<PhysicalDevice> m_physicalDevice;
+	std::shared_ptr<LogicalDevice> m_logicalDevice;
 
 	VkSurfaceKHR m_surface;
 

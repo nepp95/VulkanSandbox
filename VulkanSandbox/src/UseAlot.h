@@ -6,32 +6,6 @@
 #include <sstream>
 #include <fstream>
 
-// Macros
-#define LOG(x) std::cout << x << std::endl
-#define VK_CHECK(func, msg) { if (func != VK_SUCCESS) LOG(msg); }
-
-// Debugging enabled
-#ifdef VDEBUG
-	const bool ENABLE_VALIDATION_LAYERS = true;
-#else
-	const bool ENABLE_VALIDATION_LAYERS = false;
-#endif
-
-// Global width/height
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
-const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
-
-// Validation layers
-const std::vector<const char*> VALIDATION_LAYERS = {
-	"VK_LAYER_KHRONOS_validation"
-};
-
-// Device extensions
-const std::vector<const char*> DEVICE_EXTENSIONS = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME
-};
-
 // Vertex data
 struct Vertex
 {
