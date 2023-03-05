@@ -44,3 +44,8 @@ LogicalDevice::LogicalDevice(const std::shared_ptr<PhysicalDevice>& physicalDevi
 
 	vkGetDeviceQueue(m_device, indices.Graphics, 0, &m_graphicsQueue);
 }
+
+void LogicalDevice::Destroy()
+{
+	vkDestroyDevice(m_device, nullptr);
+}

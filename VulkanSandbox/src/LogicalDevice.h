@@ -7,6 +7,9 @@ class LogicalDevice
 public:
 	LogicalDevice(const std::shared_ptr<PhysicalDevice>& physicalDevice);
 
+	void Destroy();
+
+	const std::shared_ptr<PhysicalDevice>& GetPhysicalDevice() const { return m_physicalDevice; }
 	VkDevice GetNativeDevice() { return m_device; }
 	VkQueue GetGraphicsQueue() { return m_graphicsQueue; }
 
