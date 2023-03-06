@@ -2,50 +2,17 @@
 
 #include "Application.h"
 
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <algorithm>
+#include <chrono>
 
 Swapchain::Swapchain(const std::shared_ptr<LogicalDevice>& device)
 	: m_logicalDevice(device)
 {
 	Create();
-
-	VkAttachmentDescription colorAttachment{};
-	colorAttachment.format = m_format;
-	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-	VkAttachmentReference colorAttachmentRef{};
-	colorAttachmentRef.attachment = 0;
-	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpassDescription{};
-	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpassDescription.colorAttachmentCount = 1;
-	subpassDescription.pColorAttachments = &colorAttachmentRef;
-
-	VkSubpassDependency subpassDependency{};
-	subpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	subpassDependency.dstSubpass = 0;
-	subpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpassDependency.srcAccessMask = 0;
-	subpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-	VkRenderPassCreateInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = 1;
-	renderPassInfo.pAttachments = &colorAttachment;
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpassDescription;
-	renderPassInfo.dependencyCount = 1;
-	renderPassInfo.pDependencies = &subpassDependency;
-
-	VK_CHECK(vkCreateRenderPass(m_logicalDevice->GetNativeDevice(), &renderPassInfo, nullptr, &m_renderPass), "Failed to create render pass!");
 }
 
 void Swapchain::Create()
@@ -125,27 +92,6 @@ void Swapchain::Create()
 		VK_CHECK(vkCreateImageView(logicalDevice, &createInfo, nullptr, &m_imageViews[i]), "Failed to create image view!");
 	}
 
-	// Framebuffers
-	m_framebuffers.resize(m_imageViews.size());
-	
-	for (size_t i = 0; i < m_imageViews.size(); i++)
-	{
-		VkImageView attachments[] = {
-			m_imageViews[i]
-		};
-
-		VkFramebufferCreateInfo framebufferInfo{};
-		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = m_renderPass;
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = attachments;
-		framebufferInfo.width = m_extent.width;
-		framebufferInfo.height = m_extent.height;
-		framebufferInfo.layers = 1;
-
-		VK_CHECK(vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr, &m_framebuffers[i]), "Failed to create framebuffer!");
-	}
-
 	// Command pool
 	VkCommandPoolCreateInfo commandPoolInfo{};
 	commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -182,6 +128,66 @@ void Swapchain::Create()
 
 	for (uint32_t i = 0; i < VulkanConfig::MaxFramesInFlight; i++)
 		VK_CHECK(vkCreateFence(logicalDevice, &fenceInfo, nullptr, &m_fences[i]), "Failed to create fence!");
+
+	// Render pass
+	VkAttachmentDescription colorAttachment{};
+	colorAttachment.format = m_format;
+	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	VkAttachmentReference colorAttachmentRef{};
+	colorAttachmentRef.attachment = 0;
+	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpassDescription{};
+	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpassDescription.colorAttachmentCount = 1;
+	subpassDescription.pColorAttachments = &colorAttachmentRef;
+
+	VkSubpassDependency subpassDependency{};
+	subpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	subpassDependency.dstSubpass = 0;
+	subpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency.srcAccessMask = 0;
+	subpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	VkRenderPassCreateInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = &colorAttachment;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpassDescription;
+	renderPassInfo.dependencyCount = 1;
+	renderPassInfo.pDependencies = &subpassDependency;
+
+	VK_CHECK(vkCreateRenderPass(m_logicalDevice->GetNativeDevice(), &renderPassInfo, nullptr, &m_renderPass), "Failed to create render pass!");
+
+	// Framebuffers
+	m_framebuffers.resize(m_imageViews.size());
+
+	for (size_t i = 0; i < m_imageViews.size(); i++)
+	{
+		VkImageView attachments[] = {
+			m_imageViews[i]
+		};
+
+		VkFramebufferCreateInfo framebufferInfo{};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = m_renderPass;
+		framebufferInfo.attachmentCount = 1;
+		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.width = m_extent.width;
+		framebufferInfo.height = m_extent.height;
+		framebufferInfo.layers = 1;
+
+		VK_CHECK(vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr, &m_framebuffers[i]), "Failed to create framebuffer!");
+	}
 }
 
 void Swapchain::Recreate()
@@ -248,19 +254,32 @@ void Swapchain::DestroySurface()
 
 void Swapchain::BeginFrame()
 {
+	vkWaitForFences(m_logicalDevice->GetNativeDevice(), 1, &m_fences[m_currentFrameIndex], VK_TRUE, UINT64_MAX);
+
 	if (m_recreateNeeded)
 		Recreate();
 
 	m_currentIndex = GetNextImage();
+
+	static auto startTime = std::chrono::high_resolution_clock::now();
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+	UniformBufferObject ubo;
+	ubo.Model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.View = glm::lookAt(glm::vec3(2.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.Projection = glm::perspective(glm::radians(45.0f), m_extent.width / (float)m_extent.height, 0.1f, 10.0f);
+	ubo.Projection[1][1] *= -1;
+
+	memcpy(Application::Get().GetUniformBuffer()->m_memoryMaps[m_currentFrameIndex], &ubo, sizeof(ubo));
+
+	vkResetFences(m_logicalDevice->GetNativeDevice(), 1, &m_fences[m_currentFrameIndex]);
+
+	vkResetCommandBuffer(m_commandBuffers[m_currentFrameIndex], 0);
 }
 
 void Swapchain::Present()
 {
-	vkResetFences(m_logicalDevice->GetNativeDevice(), 1, &m_fences[m_currentFrameIndex]);
-
-	vkResetCommandBuffer(m_commandBuffers[m_currentFrameIndex], 0);
-	RecordCommandBuffer(m_commandBuffers[m_currentFrameIndex], m_currentIndex);
-
 	VkResult result;
 	VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -291,8 +310,6 @@ void Swapchain::Present()
 		OnResize();
 
 	m_currentFrameIndex = (m_currentFrameIndex + 1) % VulkanConfig::MaxFramesInFlight;
-
-	vkWaitForFences(m_logicalDevice->GetNativeDevice(), 1, &m_fences[m_currentFrameIndex], VK_TRUE, UINT64_MAX);
 }
 
 void Swapchain::OnResize()
@@ -314,46 +331,6 @@ uint32_t Swapchain::GetNextImage()
 		m_recreateNeeded = true;
 
 	return imageIndex;
-}
-
-void Swapchain::RecordCommandBuffer()
-{
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = 0;
-	beginInfo.pInheritanceInfo = nullptr;
-
-	VK_CHECK(vkBeginCommandBuffer(m_commandBuffers[m_currentFrameIndex], &beginInfo), "Failed to begin command buffer!");
-
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = m_renderPass;
-	renderPassInfo.framebuffer = m_framebuffers[m_currentFrameIndex];
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = m_extent;
-
-	VkClearValue clearColor = { {{ 0.0f, 0.0f, 0.0f, 1.0f }} }; // TODO: This is weird.
-	renderPassInfo.clearValueCount = 1;
-	renderPassInfo.pClearValues = &clearColor;
-
-	vkCmdBeginRenderPass(m_commandBuffers[m_currentFrameIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-	vkCmdBindPipeline(m_commandBuffers[m_currentFrameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
-
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = (float)m_extent.width;
-	viewport.height = (float)m_extent.height;
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(m_commandBuffers[m_currentFrameIndex], 0, 1, &viewport);
-
-	VkRect2D scissor{};
-	scissor.offset = { 0, 0 };
-	scissor.extent = m_extent;
-	vkCmdSetScissor(m_commandBuffers[m_currentFrameIndex], 0, 1, &scissor);
-
-	// VBO etc
 }
 
 SwapchainSupportDetails Swapchain::QuerySwapchainSupport()

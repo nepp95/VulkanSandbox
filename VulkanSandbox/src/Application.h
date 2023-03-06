@@ -4,11 +4,13 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+#include "IndexBuffer.h"
 #include "LogicalDevice.h"
 #include "PhysicalDevice.h"
 #include "Pipeline.h"
 #include "Swapchain.h"
-#include "UseAlot.h"
+#include "UniformBuffer.h"
+#include "VertexBuffer.h"
 #include "Vulkan.h"
 
 class Application
@@ -20,23 +22,18 @@ public:
 	VkInstance GetInstance() { return m_instance; }
 	GLFWwindow* GetWindow() { return m_window; }
 
+	const std::shared_ptr<LogicalDevice>& GetDevice() const { return m_logicalDevice; }
 	const std::shared_ptr<Swapchain>& GetSwapchain() const { return m_swapchain; }
+	const std::shared_ptr<UniformBuffer>& GetUniformBuffer() const { return m_uniformBuffer; }
 
 	void Run();
 	void Shutdown();
 	
 private:
-	void DrawFrame();
+	void BeginFrame();
 
 	bool HasValidationLayerSupport();
 	std::vector<const char*> GetRequiredExtensions();
-
-	// Command buffers
-	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-
-	// Vertex buffer
-	void CreateVertexBuffer();
-	void CreateIndexBuffer();
 
 private:
 	GLFWwindow* m_window{ nullptr };
@@ -52,8 +49,7 @@ private:
 
 	bool m_framebufferResized{ false };
 
-	VkBuffer m_vertexBuffer;
-	VkDeviceMemory m_vertexBufferMemory;
-	VkBuffer m_indexBuffer;
-	VkDeviceMemory m_indexBufferMemory;
+	std::shared_ptr<VertexBuffer> m_vertexBuffer;
+	std::shared_ptr<IndexBuffer> m_indexBuffer;
+	std::shared_ptr<UniformBuffer> m_uniformBuffer;
 };

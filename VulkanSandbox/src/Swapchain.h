@@ -25,14 +25,16 @@ public:
 
 	void OnResize();
 
-	uint32_t GetWidth() { return m_width; }
-	uint32_t GetHeight() { return m_height; }
+	uint32_t GetWidth() const { return m_width; }
+	uint32_t GetHeight() const { return m_height; }
 
 	VkRenderPass GetRenderPass() { return m_renderPass; }
+	VkFramebuffer GetCurrentFramebuffer() { return m_framebuffers[m_currentFrameIndex]; }
+	VkCommandBuffer GetRenderCommandBuffer() { return m_commandBuffers[m_currentFrameIndex]; } 
+	const VkExtent2D& GetExtent() const { return m_extent; }
 
 private:
 	uint32_t GetNextImage();
-	void RecordCommandBuffer();
 
 	SwapchainSupportDetails QuerySwapchainSupport();
 	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);

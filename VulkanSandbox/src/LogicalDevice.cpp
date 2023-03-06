@@ -43,9 +43,39 @@ LogicalDevice::LogicalDevice(const std::shared_ptr<PhysicalDevice>& physicalDevi
 	VK_CHECK(vkCreateDevice(m_physicalDevice->GetNativeDevice(), &createInfo, nullptr, &m_device), "Failed to create logical device!");
 
 	vkGetDeviceQueue(m_device, indices.Graphics, 0, &m_graphicsQueue);
+
+	VkCommandPoolCreateInfo commandPoolInfo{};
+	commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	commandPoolInfo.queueFamilyIndex = indices.Graphics;
+	commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+	VK_CHECK(vkCreateCommandPool(m_device, &commandPoolInfo, nullptr, &m_commandPool), "Failed to create command pool!");
 }
 
 void LogicalDevice::Destroy()
 {
 	vkDestroyDevice(m_device, nullptr);
+}
+
+VkCommandBuffer LogicalDevice::GetCommandBuffer(bool begin)
+{
+	VkCommandBuffer commandBuffer;
+
+	VkCommandBufferAllocateInfo commandBufferInfo{};
+	commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	commandBufferInfo.commandPool = m_commandPool;
+	commandBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	commandBufferInfo.commandBufferCount = 1;
+
+	VK_CHECK(vkAllocateCommandBuffers(m_device, &commandBufferInfo, &commandBuffer), "Failed to allocate command buffer!");
+
+	if (begin)
+	{
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		
+		VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo), "Failed to begin command buffer!");
+	}
+
+	return commandBuffer;
 }

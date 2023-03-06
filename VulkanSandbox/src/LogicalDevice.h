@@ -9,6 +9,8 @@ public:
 
 	void Destroy();
 
+	VkCommandBuffer GetCommandBuffer(bool begin);
+
 	const std::shared_ptr<PhysicalDevice>& GetPhysicalDevice() const { return m_physicalDevice; }
 	VkDevice GetNativeDevice() { return m_device; }
 	VkQueue GetGraphicsQueue() { return m_graphicsQueue; }
@@ -18,5 +20,7 @@ private:
 	VkDevice m_device;
 
 	VkQueue m_graphicsQueue;
+
+	VkCommandPool m_commandPool;
 };
 

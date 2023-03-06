@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Allocator.h"
 #include "LogicalDevice.h"
 
 struct UniformBufferObject
@@ -13,11 +14,15 @@ class UniformBuffer
 {
 public:
 	UniformBuffer(const std::shared_ptr<LogicalDevice>& device);
+	~UniformBuffer();
 
 private:
 	std::shared_ptr<LogicalDevice> m_logicalDevice;
+	// size?
 
 	std::vector<VkBuffer> m_buffers;
-	std::vector<VkDeviceMemory> m_memories;
+	std::vector<VmaAllocation> m_allocations;
 	std::vector<void*> m_memoryMaps;
+
+	friend class Swapchain;
 };

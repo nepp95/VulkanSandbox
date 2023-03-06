@@ -2,6 +2,8 @@
 
 #include "Application.h"
 
+#include <sstream>
+
 PhysicalDevice::PhysicalDevice()
 {
 	auto instance = Application::Get().GetInstance();

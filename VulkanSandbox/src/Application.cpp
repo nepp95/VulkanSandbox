@@ -1,6 +1,10 @@
 #include "Application.h"
 
+#include "Allocator.h"
+#include "Vertex.h"
+
 #include <set>
+#include <sstream>
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
 {
@@ -18,7 +22,44 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 		func(instance, debugMessenger, pAllocator);
 }
 
+// Debug callback
+static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
+	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkDebugUtilsMessageTypeFlagsEXT messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+	void* pUserData)
+{
+	/*
+		MessageSeverity:
+		VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: Diagnostic message
+		VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: Informational message like the creation of a resource
+		VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: Message about behavior that is not necessarily an error, but very likely a bug in your application
+		VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: Message about behavior that is invalid and may cause crashes
+
+		MessageType:
+		VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT: Some event has happened that is unrelated to the specification or performance
+		VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT: Something has happened that violates the specification or indicates a possible mistake
+		VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT: Potential non-optimal use of Vulkan
+	*/
+	std::stringstream ss;
+	ss << "Validation layer: " << pCallbackData->pMessage;
+	LOG(ss.str());
+
+	return VK_FALSE;
+}
+
 Application* Application::s_instance = nullptr;
+
+const std::vector<Vertex> vertices{
+	{ { -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
+	{ {  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } },
+	{ {  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f } },
+	{ { -0.5f,  0.5f }, { 1.0f, 1.0f, 1.0f } }
+};
+
+const std::vector<uint32_t> indices{
+	0, 1, 2, 2, 3, 0
+};
 
 Application::Application()
 {
@@ -82,11 +123,19 @@ Application::Application()
 
 	m_physicalDevice = std::make_shared<PhysicalDevice>();
 	m_logicalDevice = std::make_shared<LogicalDevice>(m_physicalDevice);
+
+	Allocator::Init();
+
 	m_swapchain = std::make_shared<Swapchain>(m_logicalDevice);
 	m_pipeline = std::make_shared<Pipeline>(m_logicalDevice);
 	
-	CreateVertexBuffer();
-	CreateIndexBuffer();
+	uint32_t vertexBufferSize = sizeof(Vertex) * vertices.size();
+	m_vertexBuffer = std::make_shared<VertexBuffer>((void*)vertices.data(), vertexBufferSize);
+
+	uint32_t indexBufferSize = sizeof(uint32_t) * indices.size();
+	m_indexBuffer = std::make_shared<IndexBuffer>((void*)indices.data(), indexBufferSize);
+
+	m_uniformBuffer = std::make_shared<UniformBuffer>(m_logicalDevice);
 }
 
 void Application::Run()
@@ -94,7 +143,10 @@ void Application::Run()
 	while (!glfwWindowShouldClose(m_window))
 	{
 		glfwPollEvents();
-		DrawFrame();
+
+		m_swapchain->BeginFrame();
+		BeginFrame();
+		m_swapchain->Present();
 	}
 
 	vkDeviceWaitIdle(m_logicalDevice->GetNativeDevice());
@@ -105,13 +157,6 @@ void Application::Run()
 void Application::Shutdown()
 {
 	m_swapchain->Cleanup();
-
-	vkDestroyBuffer(m_logicalDevice->GetNativeDevice(), m_indexBuffer, nullptr);
-	vkFreeMemory(m_logicalDevice->GetNativeDevice(), m_indexBufferMemory, nullptr);
-
-	vkDestroyBuffer(m_logicalDevice->GetNativeDevice(), m_vertexBuffer, nullptr);
-	vkFreeMemory(m_logicalDevice->GetNativeDevice(), m_vertexBufferMemory, nullptr);
-
 	m_pipeline->Destroy();
 	m_swapchain->Destroy();
 	m_logicalDevice->Destroy();
@@ -126,14 +171,55 @@ void Application::Shutdown()
 	glfwTerminate();
 }
 
-void Application::DrawFrame()
+void Application::BeginFrame()
 {
-	LOG("Frame Begin");
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = 0;
+	beginInfo.pInheritanceInfo = nullptr;
 
-	m_swapchain->BeginFrame();
-	m_swapchain->Present();	
+	VK_CHECK(vkBeginCommandBuffer(m_swapchain->GetRenderCommandBuffer(), &beginInfo), "Failed to begin command buffer!");
 
-	LOG("Frame End");
+	VkExtent2D extent = m_swapchain->GetExtent();
+
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = m_swapchain->GetRenderPass();
+	renderPassInfo.framebuffer = m_swapchain->GetCurrentFramebuffer();
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = extent;
+
+	VkClearValue clearColor = { {{ 0.0f, 0.0f, 0.0f, 1.0f }} }; // TODO: This is weird.
+	renderPassInfo.clearValueCount = 1;
+	renderPassInfo.pClearValues = &clearColor;
+
+	vkCmdBeginRenderPass(m_swapchain->GetRenderCommandBuffer(), &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBindPipeline(m_swapchain->GetRenderCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->GetPipeline());
+
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = (float)extent.width;
+	viewport.height = (float)extent.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(m_swapchain->GetRenderCommandBuffer(), 0, 1, &viewport);
+
+	VkRect2D scissor{};
+	scissor.offset = { 0, 0 };
+	scissor.extent = extent;
+	vkCmdSetScissor(m_swapchain->GetRenderCommandBuffer(), 0, 1, &scissor);
+
+	VkBuffer vbo[]{ m_vertexBuffer->GetBuffer() };
+	VkDeviceSize offsets[]{ 0 };
+	vkCmdBindVertexBuffers(m_swapchain->GetRenderCommandBuffer(), 0, 1, vbo, offsets);
+	vkCmdBindIndexBuffer(m_swapchain->GetRenderCommandBuffer(), m_indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+	vkCmdDrawIndexed(m_swapchain->GetRenderCommandBuffer(), (uint32_t)indices.size(), 1, 0, 0, 0);
+
+	vkCmdEndRenderPass(m_swapchain->GetRenderCommandBuffer());
+
+	VK_CHECK(vkEndCommandBuffer(m_swapchain->GetRenderCommandBuffer()), "Failed to record command buffer!");
 }
 
 bool Application::HasValidationLayerSupport()
@@ -175,59 +261,4 @@ std::vector<const char*> Application::GetRequiredExtensions()
 		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
 	return extensions;
-}
-
-void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
-{
-
-	VkBuffer vertexBuffers[]{ m_vertexBuffer };
-	VkDeviceSize offsets[]{ 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-	vkCmdDrawIndexed(commandBuffer, (uint32_t)indices.size(), 1, 0, 0, 0);
-
-	vkCmdEndRenderPass(commandBuffer);
-
-	VK_CHECK(vkEndCommandBuffer(commandBuffer), "Failed to record command buffer!");
-}
-
-void Application::CreateVertexBuffer()
-{
-	VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	CreateBuffer(m_logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-	void* data;
-	vkMapMemory(m_logicalDevice->GetNativeDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vertices.data(), (size_t)bufferSize);
-	vkUnmapMemory(m_logicalDevice->GetNativeDevice(), stagingBufferMemory);
-
-	CreateBuffer(m_logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_vertexBuffer, m_vertexBufferMemory);
-	CopyBuffer(m_logicalDevice, stagingBuffer, m_vertexBuffer, bufferSize);
-
-	vkDestroyBuffer(m_logicalDevice->GetNativeDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(m_logicalDevice->GetNativeDevice(), stagingBufferMemory, nullptr);
-}
-
-void Application::CreateIndexBuffer()
-{
-	VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	CreateBuffer(m_logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-	
-	void* data;
-	vkMapMemory(m_logicalDevice->GetNativeDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, indices.data(), (size_t)bufferSize);
-	vkUnmapMemory(m_logicalDevice->GetNativeDevice(), stagingBufferMemory);
-
-	CreateBuffer(m_logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_indexBuffer, m_indexBufferMemory);
-	CopyBuffer(m_logicalDevice, stagingBuffer, m_indexBuffer, bufferSize);
-
-	vkDestroyBuffer(m_logicalDevice->GetNativeDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(m_logicalDevice->GetNativeDevice(), stagingBufferMemory, nullptr);
 }

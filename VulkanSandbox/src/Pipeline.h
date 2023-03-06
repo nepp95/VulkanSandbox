@@ -9,6 +9,8 @@ public:
 
 	void Destroy();
 
+	VkPipeline GetPipeline() { return m_pipeline; }
+
 private:
 	VkShaderModule CreateShaderModule(const std::vector<char>& byteCode);
 
