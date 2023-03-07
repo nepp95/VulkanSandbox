@@ -136,6 +136,51 @@ Application::Application()
 	m_indexBuffer = std::make_shared<IndexBuffer>((void*)indices.data(), indexBufferSize);
 
 	m_uniformBuffer = std::make_shared<UniformBuffer>(m_logicalDevice);
+
+	// Descriptor pool
+	VkDescriptorPoolSize poolSize{};
+	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSize.descriptorCount = VulkanConfig::MaxFramesInFlight;
+
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = 1;
+	poolInfo.pPoolSizes = &poolSize;
+	poolInfo.maxSets = VulkanConfig::MaxFramesInFlight;
+
+	VK_CHECK(vkCreateDescriptorPool(m_logicalDevice->GetNativeDevice(), &poolInfo, nullptr, &m_descriptorPool), "Failed to create descriptor pool!");
+
+	// Descriptor sets
+	std::vector<VkDescriptorSetLayout> layouts(VulkanConfig::MaxFramesInFlight, m_pipeline->GetDescriptorLayout());
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = m_descriptorPool;
+	allocInfo.descriptorSetCount = (uint32_t)layouts.size();
+	allocInfo.pSetLayouts = layouts.data();
+
+	m_descriptorSets.resize(VulkanConfig::MaxFramesInFlight);
+	VK_CHECK(vkAllocateDescriptorSets(m_logicalDevice->GetNativeDevice(), &allocInfo, m_descriptorSets.data()), "Failed to allocate descriptor sets!");
+
+	for (uint32_t i = 0; i < VulkanConfig::MaxFramesInFlight; i++)
+	{
+		VkDescriptorBufferInfo bufferInfo{};
+		bufferInfo.buffer = m_uniformBuffer->GetBuffers()[i];
+		bufferInfo.offset = 0;
+		bufferInfo.range = sizeof(UniformBufferObject);
+
+		VkWriteDescriptorSet writeDescriptor{};
+		writeDescriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writeDescriptor.dstSet = m_descriptorSets[i];
+		writeDescriptor.dstBinding = 0;
+		writeDescriptor.dstArrayElement = 0;
+		writeDescriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		writeDescriptor.descriptorCount = 1;
+		writeDescriptor.pBufferInfo = &bufferInfo;
+		writeDescriptor.pImageInfo = nullptr;
+		writeDescriptor.pTexelBufferView = nullptr;
+
+		vkUpdateDescriptorSets(m_logicalDevice->GetNativeDevice(), 1, &writeDescriptor, 0, nullptr);
+	}
 }
 
 void Application::Run()
@@ -157,6 +202,7 @@ void Application::Run()
 void Application::Shutdown()
 {
 	m_swapchain->Cleanup();
+	vkDestroyDescriptorPool(m_logicalDevice->GetNativeDevice(), m_descriptorPool, nullptr);
 	m_pipeline->Destroy();
 	m_swapchain->Destroy();
 	m_logicalDevice->Destroy();
@@ -215,6 +261,8 @@ void Application::BeginFrame()
 	vkCmdBindVertexBuffers(m_swapchain->GetRenderCommandBuffer(), 0, 1, vbo, offsets);
 	vkCmdBindIndexBuffer(m_swapchain->GetRenderCommandBuffer(), m_indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
+	vkCmdBindDescriptorSets(m_swapchain->GetRenderCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->GetPipelineLayout(), 0, 1, &m_descriptorSets[m_swapchain->GetCurrentImageIndex()], 0, nullptr);
+	
 	vkCmdDrawIndexed(m_swapchain->GetRenderCommandBuffer(), (uint32_t)indices.size(), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(m_swapchain->GetRenderCommandBuffer());

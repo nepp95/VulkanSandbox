@@ -28,6 +28,8 @@ public:
 	uint32_t GetWidth() const { return m_width; }
 	uint32_t GetHeight() const { return m_height; }
 
+	uint32_t GetCurrentImageIndex() const { return m_currentFrameIndex; }
+
 	VkRenderPass GetRenderPass() { return m_renderPass; }
 	VkFramebuffer GetCurrentFramebuffer() { return m_framebuffers[m_currentFrameIndex]; }
 	VkCommandBuffer GetRenderCommandBuffer() { return m_commandBuffers[m_currentFrameIndex]; } 

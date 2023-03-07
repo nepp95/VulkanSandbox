@@ -10,6 +10,8 @@ public:
 	void Destroy();
 
 	VkPipeline GetPipeline() { return m_pipeline; }
+	VkPipelineLayout GetPipelineLayout() { return m_pipelineLayout; }
+	VkDescriptorSetLayout GetDescriptorLayout() { return m_descriptorLayout; }
 
 private:
 	VkShaderModule CreateShaderModule(const std::vector<char>& byteCode);

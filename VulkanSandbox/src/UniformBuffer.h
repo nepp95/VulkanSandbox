@@ -16,6 +16,8 @@ public:
 	UniformBuffer(const std::shared_ptr<LogicalDevice>& device);
 	~UniformBuffer();
 
+	const std::vector<VkBuffer>& GetBuffers() const { return m_buffers; }
+
 private:
 	std::shared_ptr<LogicalDevice> m_logicalDevice;
 	// size?
@@ -24,5 +26,5 @@ private:
 	std::vector<VmaAllocation> m_allocations;
 	std::vector<void*> m_memoryMaps;
 
-	friend class Swapchain;
+	friend class Swapchain; // remove
 };
