@@ -17,7 +17,6 @@ UniformBuffer::UniformBuffer(const std::shared_ptr<LogicalDevice>& device)
 
 	for (size_t i = 0; i < VulkanConfig::MaxFramesInFlight; i++)
 	{
-		LOG("Uniform created");
 		m_allocations[i] = Allocator::AllocateBuffer(m_buffers[i], uboInfo, VMA_MEMORY_USAGE_CPU_ONLY);
 		m_memoryMaps[i] = Allocator::MapMemory(m_allocations[i]);
 	}

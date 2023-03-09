@@ -2,13 +2,16 @@
 
 #include "Application.h"
 
+#include <sstream>
+
 struct Vma
 {
 	VmaAllocator Allocator;
-	uint64_t MemoryUsed;
+	uint64_t MemoryUsed = 0;
 };
 
 static Vma* s_data = nullptr;
+static std::stringstream ss;
 
 VmaAllocation Allocator::AllocateBuffer(VkBuffer& buffer, VkBufferCreateInfo createInfo, VmaMemoryUsage usage)
 {
@@ -19,6 +22,12 @@ VmaAllocation Allocator::AllocateBuffer(VkBuffer& buffer, VkBufferCreateInfo cre
 
 	VmaAllocation allocation;
 	vmaCreateBuffer(s_data->Allocator, &createInfo, &allocCreateInfo, &buffer, &allocation, &allocationInfo);
+
+	s_data->MemoryUsed += allocationInfo.size;
+
+	ss.str("");
+	ss << "[GPU] Memory allocated: " << allocationInfo.size << ", Total memory in use: " << s_data->MemoryUsed / 1000000.0f << " MB (" << s_data->MemoryUsed << " bytes)";
+	LOG(ss.str());
 
 	return allocation;
 }
@@ -33,16 +42,40 @@ VmaAllocation Allocator::AllocateImage(VkImage& image, VkImageCreateInfo createI
 	VmaAllocation allocation;
 	vmaCreateImage(s_data->Allocator, &createInfo, &allocCreateInfo, &image, &allocation, &allocationInfo);
 
+	s_data->MemoryUsed += allocationInfo.size;
+
+	ss.str("");
+	ss << "[GPU] Memory allocated: " << allocationInfo.size << ", Total memory in use: " << s_data->MemoryUsed / 1000000.0f << " MB (" << s_data->MemoryUsed << " bytes)";
+	LOG(ss.str());
+
 	return allocation;
 }
 
 void Allocator::DestroyBuffer(VkBuffer buffer, VmaAllocation allocation)
 {
+	VmaAllocationInfo allocationInfo{};
+	vmaGetAllocationInfo(s_data->Allocator, allocation, &allocationInfo);
+
+	s_data->MemoryUsed -= allocationInfo.size;
+
+	ss.str("");
+	ss << "[GPU] Memory freed: " << allocationInfo.size << ", Total memory in use: " << s_data->MemoryUsed / 1000000.0f << " MB (" << s_data->MemoryUsed << " bytes)";
+	LOG(ss.str());
+
 	vmaDestroyBuffer(s_data->Allocator, buffer, allocation);
 }
 
 void Allocator::DestroyImage(VkImage image, VmaAllocation allocation)
 {
+	VmaAllocationInfo allocationInfo{};
+	vmaGetAllocationInfo(s_data->Allocator, allocation, &allocationInfo);
+
+	s_data->MemoryUsed -= allocationInfo.size;
+
+	ss.str("");
+	ss << "[GPU] Memory freed: " << allocationInfo.size << ", Total memory in use: " << s_data->MemoryUsed / 1000000.0f << " MB (" << s_data->MemoryUsed << " bytes)";
+	LOG(ss.str());
+
 	vmaDestroyImage(s_data->Allocator, image, allocation);
 }
 
