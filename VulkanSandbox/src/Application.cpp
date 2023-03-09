@@ -51,10 +51,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 Application* Application::s_instance = nullptr;
 
 const std::vector<Vertex> vertices{
-	{ { -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
-	{ {  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } },
-	{ {  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f } },
-	{ { -0.5f,  0.5f }, { 1.0f, 1.0f, 1.0f } }
+	{ { -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
+	{ {  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+	{ {  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+	{ { -0.5f,  0.5f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } }
 };
 
 const std::vector<uint32_t> indices{
@@ -129,6 +129,7 @@ Application::Application()
 	m_swapchain = std::make_shared<Swapchain>(m_logicalDevice);
 	m_pipeline = std::make_shared<Pipeline>(m_logicalDevice);
 	
+	// Buffers
 	uint32_t vertexBufferSize = sizeof(Vertex) * vertices.size();
 	m_vertexBuffer = std::make_shared<VertexBuffer>((void*)vertices.data(), vertexBufferSize);
 
@@ -137,15 +138,44 @@ Application::Application()
 
 	m_uniformBuffer = std::make_shared<UniformBuffer>(m_logicalDevice);
 
-	// Descriptor pool
-	VkDescriptorPoolSize poolSize{};
-	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSize.descriptorCount = VulkanConfig::MaxFramesInFlight;
+	// Load a texture
+	m_image = std::make_shared<Image>("textures/texture.jpg");
 
+	// Sampler
+	VkSamplerCreateInfo samplerInfo{};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.magFilter = VK_FILTER_LINEAR;
+	samplerInfo.minFilter = VK_FILTER_LINEAR;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.anisotropyEnable = VK_TRUE;
+	samplerInfo.maxAnisotropy = m_physicalDevice->GetDeviceProperties().limits.maxSamplerAnisotropy;
+	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+	samplerInfo.compareEnable = VK_FALSE;
+	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.mipLodBias = 0.0f;
+	samplerInfo.minLod = 0.0f;
+	samplerInfo.maxLod = 0.0f;
+
+	VK_CHECK(vkCreateSampler(m_logicalDevice->GetNativeDevice(), &samplerInfo, nullptr, &m_sampler), "Failed to create sampler!");
+
+	// Descriptor pool
+	VkDescriptorPoolSize poolSizeUbo{};
+	poolSizeUbo.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSizeUbo.descriptorCount = VulkanConfig::MaxFramesInFlight;
+
+	VkDescriptorPoolSize poolSizeSampler{};
+	poolSizeSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	poolSizeSampler.descriptorCount = VulkanConfig::MaxFramesInFlight;
+
+	std::array<VkDescriptorPoolSize, 2> poolSizes = { poolSizeUbo, poolSizeSampler };
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1;
-	poolInfo.pPoolSizes = &poolSize;
+	poolInfo.poolSizeCount = (uint32_t)poolSizes.size();
+	poolInfo.pPoolSizes = poolSizes.data();
 	poolInfo.maxSets = VulkanConfig::MaxFramesInFlight;
 
 	VK_CHECK(vkCreateDescriptorPool(m_logicalDevice->GetNativeDevice(), &poolInfo, nullptr, &m_descriptorPool), "Failed to create descriptor pool!");
@@ -168,18 +198,35 @@ Application::Application()
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof(UniformBufferObject);
 
-		VkWriteDescriptorSet writeDescriptor{};
-		writeDescriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writeDescriptor.dstSet = m_descriptorSets[i];
-		writeDescriptor.dstBinding = 0;
-		writeDescriptor.dstArrayElement = 0;
-		writeDescriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		writeDescriptor.descriptorCount = 1;
-		writeDescriptor.pBufferInfo = &bufferInfo;
-		writeDescriptor.pImageInfo = nullptr;
-		writeDescriptor.pTexelBufferView = nullptr;
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo.imageView = m_image->GetImageView(); // TODO: MOVE THIS!!!
+		imageInfo.sampler = m_sampler;
 
-		vkUpdateDescriptorSets(m_logicalDevice->GetNativeDevice(), 1, &writeDescriptor, 0, nullptr);
+		VkWriteDescriptorSet writeDescriptorUbo{};
+		writeDescriptorUbo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writeDescriptorUbo.dstSet = m_descriptorSets[i];
+		writeDescriptorUbo.dstBinding = 0;
+		writeDescriptorUbo.dstArrayElement = 0;
+		writeDescriptorUbo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		writeDescriptorUbo.descriptorCount = 1;
+		writeDescriptorUbo.pBufferInfo = &bufferInfo;
+		writeDescriptorUbo.pImageInfo = nullptr;
+		writeDescriptorUbo.pTexelBufferView = nullptr;
+
+		VkWriteDescriptorSet writeDescriptorImage{};
+		writeDescriptorImage.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writeDescriptorImage.dstSet = m_descriptorSets[i];
+		writeDescriptorImage.dstBinding = 1;
+		writeDescriptorImage.dstArrayElement = 0;
+		writeDescriptorImage.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		writeDescriptorImage.descriptorCount = 1;
+		writeDescriptorImage.pBufferInfo = nullptr;
+		writeDescriptorImage.pImageInfo = &imageInfo;
+		writeDescriptorImage.pTexelBufferView = nullptr;
+
+		std::array<VkWriteDescriptorSet, 2> writeDescriptors = { writeDescriptorUbo, writeDescriptorImage };
+		vkUpdateDescriptorSets(m_logicalDevice->GetNativeDevice(), (uint32_t)writeDescriptors.size(), writeDescriptors.data(), 0, nullptr);
 	}
 }
 
@@ -201,8 +248,11 @@ void Application::Run()
 
 void Application::Shutdown()
 {
+	VkDevice device = m_logicalDevice->GetNativeDevice();
+
+	vkDestroySampler(device, m_sampler, nullptr);
 	m_swapchain->Cleanup();
-	vkDestroyDescriptorPool(m_logicalDevice->GetNativeDevice(), m_descriptorPool, nullptr);
+	vkDestroyDescriptorPool(device, m_descriptorPool, nullptr);
 	m_pipeline->Destroy();
 	m_swapchain->Destroy();
 	m_logicalDevice->Destroy();

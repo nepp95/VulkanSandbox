@@ -113,10 +113,18 @@ Pipeline::Pipeline(const std::shared_ptr<LogicalDevice>& device)
 	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	uboLayoutBinding.pImmutableSamplers = nullptr;
 
+	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+	samplerLayoutBinding.binding = 1;
+	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	samplerLayoutBinding.descriptorCount = 1;
+	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	samplerLayoutBinding.pImmutableSamplers = nullptr;
+
+	std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
 	VkDescriptorSetLayoutCreateInfo descriptorInfo{};
 	descriptorInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	descriptorInfo.bindingCount = 1;
-	descriptorInfo.pBindings = &uboLayoutBinding;
+	descriptorInfo.bindingCount = (uint32_t)bindings.size();
+	descriptorInfo.pBindings = bindings.data();
 
 	VK_CHECK(vkCreateDescriptorSetLayout(logicalDevice, &descriptorInfo, nullptr, &m_descriptorLayout), "Failed to create descriptor set layout!");
 

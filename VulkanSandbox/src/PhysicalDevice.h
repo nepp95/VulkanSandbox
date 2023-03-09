@@ -19,6 +19,7 @@ public:
 
 	const QueueFamilyIndices& GetQueueFamilyIndices() const { return m_indices; }
 	const VkPhysicalDeviceFeatures& GetDeviceFeatures() const { return m_features; }
+	const VkPhysicalDeviceProperties& GetDeviceProperties() const { return m_properties; }
 	const VkPhysicalDevice GetNativeDevice() const { return m_physicalDevice; }
 
 	bool IsExtensionSupported(std::string_view name);

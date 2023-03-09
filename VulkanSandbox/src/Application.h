@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+#include "Image.h"
 #include "IndexBuffer.h"
 #include "LogicalDevice.h"
 #include "PhysicalDevice.h"
@@ -52,6 +53,9 @@ private:
 	std::shared_ptr<VertexBuffer> m_vertexBuffer;
 	std::shared_ptr<IndexBuffer> m_indexBuffer;
 	std::shared_ptr<UniformBuffer> m_uniformBuffer;
+
+	std::shared_ptr<Image> m_image;
+	VkSampler m_sampler;
 
 	// Shader? Renderer?
 	VkDescriptorPool m_descriptorPool;

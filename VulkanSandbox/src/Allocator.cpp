@@ -23,9 +23,27 @@ VmaAllocation Allocator::AllocateBuffer(VkBuffer& buffer, VkBufferCreateInfo cre
 	return allocation;
 }
 
+VmaAllocation Allocator::AllocateImage(VkImage& image, VkImageCreateInfo createInfo, VmaMemoryUsage usage)
+{
+	VmaAllocationCreateInfo allocCreateInfo{};
+	allocCreateInfo.usage = usage;
+
+	VmaAllocationInfo allocationInfo{};
+
+	VmaAllocation allocation;
+	vmaCreateImage(s_data->Allocator, &createInfo, &allocCreateInfo, &image, &allocation, &allocationInfo);
+
+	return allocation;
+}
+
 void Allocator::DestroyBuffer(VkBuffer buffer, VmaAllocation allocation)
 {
 	vmaDestroyBuffer(s_data->Allocator, buffer, allocation);
+}
+
+void Allocator::DestroyImage(VkImage image, VmaAllocation allocation)
+{
+	vmaDestroyImage(s_data->Allocator, image, allocation);
 }
 
 void* Allocator::MapMemory(VmaAllocation allocation)

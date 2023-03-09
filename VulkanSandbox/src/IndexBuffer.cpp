@@ -26,7 +26,7 @@ IndexBuffer::IndexBuffer(void* data, uint32_t size)
 
 	m_allocation = Allocator::AllocateBuffer(m_buffer, indexBufferInfo, VMA_MEMORY_USAGE_GPU_ONLY);
 
-	auto device = Application::Get().GetDevice();
+	auto& device = Application::Get().GetDevice();
 	VkCommandBuffer commandBuffer = device->GetCommandBuffer(true);
 	VkBufferCopy copyRegion{};
 	copyRegion.srcOffset = 0;

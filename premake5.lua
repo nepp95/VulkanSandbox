@@ -36,6 +36,7 @@ project "VulkanSandbox"
 		"src",
 		"%{IncludeDir.glfw}",
 		"%{IncludeDir.glm}",
+		"%{IncludeDir.stb}",
 		"%{IncludeDir.VulkanSDK}",
 		"%{IncludeDir.Vma}"
 	}

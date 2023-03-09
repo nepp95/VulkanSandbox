@@ -6,6 +6,7 @@
 VertexBuffer::VertexBuffer(void* data, uint32_t size)
 	: m_size(size)
 {
+	// Staging buffer
 	VkBufferCreateInfo stagingBufferInfo{};
 	stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	stagingBufferInfo.size = size;
@@ -19,6 +20,7 @@ VertexBuffer::VertexBuffer(void* data, uint32_t size)
 	memcpy(memData, data, (size_t)size);
 	Allocator::UnmapMemory(stagingBufferAlloc);
 
+	// Vertex buffer
 	VkBufferCreateInfo vertexBufferInfo{};
 	vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	vertexBufferInfo.size = size;
@@ -27,7 +29,7 @@ VertexBuffer::VertexBuffer(void* data, uint32_t size)
 
 	m_allocation = Allocator::AllocateBuffer(m_buffer, vertexBufferInfo, VMA_MEMORY_USAGE_GPU_ONLY);
 
-	auto device = Application::Get().GetDevice();
+	auto& device = Application::Get().GetDevice();
 	VkCommandBuffer commandBuffer = device->GetCommandBuffer(true);
 	VkBufferCopy copyRegion{};
 	copyRegion.srcOffset = 0;
@@ -37,6 +39,7 @@ VertexBuffer::VertexBuffer(void* data, uint32_t size)
 	vkCmdCopyBuffer(commandBuffer, stagingBuffer, m_buffer, 1, &copyRegion);
 	device->FlushCommandBuffer(commandBuffer);
 
+	// Clean up
 	Allocator::DestroyBuffer(stagingBuffer, stagingBufferAlloc);
 }
 
