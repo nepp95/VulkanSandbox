@@ -10,6 +10,7 @@ public:
 	void Destroy();
 
 	VkCommandBuffer GetCommandBuffer(bool begin);
+	void FlushCommandBuffer(VkCommandBuffer commandBuffer);
 
 	const std::shared_ptr<PhysicalDevice>& GetPhysicalDevice() const { return m_physicalDevice; }
 	VkDevice GetNativeDevice() { return m_device; }

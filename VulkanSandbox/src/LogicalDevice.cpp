@@ -79,3 +79,29 @@ VkCommandBuffer LogicalDevice::GetCommandBuffer(bool begin)
 
 	return commandBuffer;
 }
+
+void LogicalDevice::FlushCommandBuffer(VkCommandBuffer commandBuffer)
+{
+	VK_CHECK(vkEndCommandBuffer(commandBuffer), "Failed to end command buffer requested from logical device!");
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	VkFenceCreateInfo fenceInfo{};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.flags = 0;
+	
+	// We need this to be done when this function end so we sync it
+	VkFence fence;
+	VK_CHECK(vkCreateFence(m_device, &fenceInfo, nullptr, &fence), "Failed to create temporary fence!");
+
+	// Submit work
+	VK_CHECK(vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, fence), "Failed to submit queue!");
+	vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX);
+
+	// Clean up
+	vkDestroyFence(m_device, fence, nullptr);
+	vkFreeCommandBuffers(m_device, m_commandPool, 1, &commandBuffer);
+}

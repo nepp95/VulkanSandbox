@@ -35,6 +35,8 @@ VertexBuffer::VertexBuffer(void* data, uint32_t size)
 	copyRegion.size = size;
 
 	vkCmdCopyBuffer(commandBuffer, stagingBuffer, m_buffer, 1, &copyRegion);
+	device->FlushCommandBuffer(commandBuffer);
+
 	Allocator::DestroyBuffer(stagingBuffer, stagingBufferAlloc);
 }
 
