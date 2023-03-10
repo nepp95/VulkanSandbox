@@ -2,7 +2,7 @@
 *.vcxproj*
 *.spv
 
-vendor/
+/vendor/
 .vs/
 bin/
 bin-int/
