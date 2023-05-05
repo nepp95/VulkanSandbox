@@ -1,6 +1,6 @@
 #include "Application.h"
 
-#include "Allocator.h"
+#include "Memory/Allocator.h"
 #include "Vertex.h"
 
 #include <set>

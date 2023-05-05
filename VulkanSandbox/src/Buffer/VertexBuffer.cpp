@@ -1,12 +1,32 @@
 #include "VertexBuffer.h"
 
-#include "Application.h"
-#include "Vertex.h"
+#include "../Application.h"
+#include "../Vertex.h"
 
 VertexBuffer::VertexBuffer(void* data, uint32_t size)
 	: m_size(size)
 {
-	// Staging buffer
+	CreateBuffer(data, size);
+}
+
+VertexBuffer::VertexBuffer(uint32_t size)
+{
+	CreateBuffer(nullptr, size);
+}
+
+VertexBuffer::~VertexBuffer()
+{
+	Allocator::DestroyBuffer(m_buffer, m_allocation);
+}
+
+void VertexBuffer::SetData(void* data, uint32_t size)
+{
+	// TODO: implement
+}
+
+void VertexBuffer::CreateBuffer(void* data, uint32_t size)
+{
+	// To stage or not to stage (staging buffer)
 	VkBufferCreateInfo stagingBufferInfo{};
 	stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	stagingBufferInfo.size = size;
@@ -17,7 +37,10 @@ VertexBuffer::VertexBuffer(void* data, uint32_t size)
 	VmaAllocation stagingBufferAlloc = Allocator::AllocateBuffer(stagingBuffer, stagingBufferInfo, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	void* memData = Allocator::MapMemory(stagingBufferAlloc);
-	memcpy(memData, data, (size_t)size);
+	if (data)
+		memcpy(memData, data, (size_t)size);
+	else
+		memset(memData, 0, (size_t)size);
 	Allocator::UnmapMemory(stagingBufferAlloc);
 
 	// Vertex buffer
@@ -41,9 +64,4 @@ VertexBuffer::VertexBuffer(void* data, uint32_t size)
 
 	// Clean up
 	Allocator::DestroyBuffer(stagingBuffer, stagingBufferAlloc);
-}
-
-VertexBuffer::~VertexBuffer()
-{
-	Allocator::DestroyBuffer(m_buffer, m_allocation);
 }

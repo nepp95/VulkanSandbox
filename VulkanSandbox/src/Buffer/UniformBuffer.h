@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Allocator.h"
-#include "LogicalDevice.h"
+#include "../Memory/Allocator.h"
+#include "../Device/LogicalDevice.h"
 
 struct UniformBufferObject
 {

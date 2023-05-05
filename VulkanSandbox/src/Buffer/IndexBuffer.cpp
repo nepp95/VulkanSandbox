@@ -1,6 +1,6 @@
 #include "IndexBuffer.h"
 
-#include "Application.h"
+#include "../Application.h"
 
 IndexBuffer::IndexBuffer(void* data, uint32_t size)
 	: m_size(size)

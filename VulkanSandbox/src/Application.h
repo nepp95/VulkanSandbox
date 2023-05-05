@@ -4,14 +4,14 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
-#include "Image.h"
-#include "IndexBuffer.h"
-#include "LogicalDevice.h"
-#include "PhysicalDevice.h"
+#include "Buffer/IndexBuffer.h"
+#include "Buffer/UniformBuffer.h"
+#include "Buffer/VertexBuffer.h"
+#include "Device/LogicalDevice.h"
+#include "Device/PhysicalDevice.h"
+#include "Device/Swapchain.h"
+#include "Renderable/Image.h"
 #include "Pipeline.h"
-#include "Swapchain.h"
-#include "UniformBuffer.h"
-#include "VertexBuffer.h"
 #include "Vulkan.h"
 
 class Application

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "LogicalDevice.h"
+#include "Device/LogicalDevice.h"
 
 class Pipeline
 {
