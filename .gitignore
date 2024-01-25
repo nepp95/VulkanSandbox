@@ -4,6 +4,7 @@
 
 /vendor/
 .vs/
+.vscode/
 bin/
 bin-int/
 __pycache__
